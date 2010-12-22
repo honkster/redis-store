@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), "/../../spec_helper")
+require 'spec_helper'
 
 module Rack
   module Session
@@ -26,12 +26,12 @@ module Rack
       end
 
       it "should specify connection params" do
-        pool = Rack::Session::Redis.new(@incrementor, :redis_server => "localhost:6380/1").pool
-        pool.should be_kind_of(MarshaledRedis)
-        pool.to_s.should == "Redis Client connected to localhost:6380 against DB 1"
+        pool = Rack::Session::Redis.new(@incrementor, :redis_server => "redis://127.0.0.1:6380/1/theplaylist").pool
+        pool.should be_kind_of(::Redis::Store)
+        pool.to_s.should == "Redis Client connected to 127.0.0.1:6380 against DB 1 with namespace theplaylist"
 
-        pool = Rack::Session::Redis.new(@incrementor, :redis_server => ["localhost:6379", "localhost:6380"]).pool
-        pool.should be_kind_of(DistributedMarshaledRedis)
+        pool = Rack::Session::Redis.new(@incrementor, :redis_server => ["redis://127.0.0.1:6379", "redis://127.0.0.1:6380"]).pool
+        pool.should be_kind_of(::Redis::DistributedStore)
       end
 
       it "creates a new cookie" do

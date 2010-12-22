@@ -2,29 +2,29 @@ module Rack
   module Session
     class Redis < Abstract::ID
       attr_reader :mutex, :pool
-      DEFAULT_OPTIONS = Abstract::ID::DEFAULT_OPTIONS.merge :redis_server => "localhost:6379"
+      DEFAULT_OPTIONS = Abstract::ID::DEFAULT_OPTIONS.merge :redis_server => "redis://127.0.0.1:6379/0"
 
       def initialize(app, options = {})
         super
         @mutex = Mutex.new
-        @pool = RedisFactory.create options[:redis_server] || @default_options[:redis_server]
+        @pool = ::Redis::Factory.create options[:redis_server] || @default_options[:redis_server]
       end
 
       def generate_sid
         loop do
           sid = super
-          break sid unless @pool.marshalled_get(sid)
+          break sid unless @pool.get(sid)
         end
       end
 
       def get_session(env, sid)
-        session = @pool.marshalled_get(sid) if sid
+        session = @pool.get(sid) if sid
         @mutex.lock if env['rack.multithread']
         unless sid and session
           env['rack.errors'].puts("Session '#{sid.inspect}' not found, initializing...") if $VERBOSE and not sid.nil?
           session = {}
           sid = generate_sid
-          ret = @pool.marshalled_set sid, session
+          ret = @pool.set sid, session
           raise "Session collision on '#{sid.inspect}'" unless ret
         end
         session.instance_variable_set('@old', {}.merge(session))
@@ -39,16 +39,16 @@ module Rack
 
       def set_session(env, session_id, new_session, options)
         @mutex.lock if env['rack.multithread']
-        session = @pool.marshalled_get(session_id) rescue {}
+        session = @pool.get(session_id) rescue {}
         if options[:renew] or options[:drop]
           @pool.del session_id
           return false if options[:drop]
           session_id = generate_sid
-          @pool.marshalled_set session_id, 0
+          @pool.set session_id, 0
         end
         old_session = new_session.instance_variable_get('@old') || {}
         session = merge_sessions session_id, old_session, new_session, session
-        @pool.marshalled_set session_id, session, options
+        @pool.set session_id, session, options
         return session_id
       rescue Errno::ECONNREFUSED
         warn "#{self} is unable to find server."
@@ -68,7 +68,7 @@ module Rack
 
           delete = old.keys - new.keys
           warn "//@#{sid}: dropping #{delete*','}" if $DEBUG and not delete.empty?
-          delete.each{|k| cur.del k }
+          delete.each{|k| cur.delete k }
 
           update = new.keys.select{|k| new[k] != old[k] }
           warn "//@#{sid}: updating #{update*','}" if $DEBUG and not update.empty?

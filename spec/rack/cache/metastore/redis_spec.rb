@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), "/../../../spec_helper")
+require 'spec_helper'
 
 module Rack
   module Cache
@@ -23,7 +23,7 @@ module Rack
 
         it "should resolve the connection uri" do
           cache = Rack::Cache::MetaStore::Redis.resolve(uri("redis://127.0.0.1")).cache
-          cache.should be_kind_of(::MarshaledRedis)
+          cache.should be_kind_of(::Redis::Store)
           cache.to_s.should == "Redis Client connected to 127.0.0.1:6379 against DB 0"
 
           cache = Rack::Cache::MetaStore::Redis.resolve(uri("redis://127.0.0.1:6380")).cache
@@ -31,6 +31,10 @@ module Rack
 
           cache = Rack::Cache::MetaStore::Redis.resolve(uri("redis://127.0.0.1/13")).cache
           cache.to_s.should == "Redis Client connected to 127.0.0.1:6379 against DB 13"
+
+          cache = Rack::Cache::MetaStore::Redis.resolve(uri("redis://:secret@127.0.0.1")).cache
+          cache.id.should == "redis://127.0.0.1:6379/0"
+          cache.client.password.should == 'secret'
         end
 
         # Low-level implementation methods ===========================================

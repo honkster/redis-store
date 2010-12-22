@@ -11,11 +11,13 @@ begin
   require "jeweler"
   Jeweler::Tasks.new do |gemspec|
     gemspec.name        = "#{ENV["GEM_PREFIX"]}redis-store"
-    gemspec.summary     = "Rack::Session, Rack::Cache and cache Redis stores for Ruby web frameworks."
-    gemspec.description = "Rack::Session, Rack::Cache and cache Redis stores for Ruby web frameworks."
+    gemspec.summary     = "Namespaced Rack::Session, Rack::Cache, I18n and cache Redis stores for Ruby web frameworks."
+    gemspec.description = "Namespaced Rack::Session, Rack::Cache, I18n and cache Redis stores for Ruby web frameworks."
     gemspec.email       = "guidi.luca@gmail.com"
     gemspec.homepage    = "http://github.com/jodosha/redis-store"
     gemspec.authors     = [ "Luca Guidi" ]
+    gemspec.executables = [ ]
+    gemspec.add_dependency "redis", ">= 2.0.0"
   end
 
   Jeweler::GemcutterTasks.new
@@ -25,7 +27,7 @@ end
 
 namespace :spec do
   desc "Run all the examples by starting a detached Redis instance"
-  task :suite do
+  task :suite => :prepare do
     invoke_with_redis_cluster "spec:run"
   end
 
@@ -36,7 +38,7 @@ namespace :spec do
 end
 
 desc "Run all examples with RCov"
-task :rcov do
+task :rcov => :prepare do
   invoke_with_redis_cluster "rcov_run"
 end
 
@@ -45,26 +47,14 @@ Spec::Rake::SpecTask.new(:rcov_run) do |t|
   t.rcov = true
 end
 
-namespace :redis_cluster do
-  desc "Starts the redis_cluster"
-  task :start do
-    result = RedisClusterRunner.start_detached
-    raise("Could not start redis-server, aborting.") unless result
-  end
+task :prepare do
+  `mkdir -p tmp && rm tmp/*.rdb`
+end
 
-  desc "Stops the redis_cluster"
-  task :stop do
-    RedisClusterRunner.stop
+namespace :bundle do
+  task :clean do
+    system "rm -rf ~/.bundle/ ~/.gem/ .bundle/ Gemfile.lock"
   end
 end
 
-# courtesy of http://github.com/ezmobius/redis-rb team
 load "tasks/redis.tasks.rb"
-def invoke_with_redis_cluster(task_name)
-  begin
-    Rake::Task["redis_cluster:start"].invoke
-    Rake::Task[task_name].invoke
-  ensure
-    Rake::Task["redis_cluster:stop"].invoke
-  end
-end
